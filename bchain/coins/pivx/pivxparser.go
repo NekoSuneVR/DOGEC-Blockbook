@@ -1,50 +1,33 @@
 package pivx
 
 import (
-	"blockbook/bchain"
-	"blockbook/bchain/coins/btc"
-	"blockbook/bchain/coins/utils"
 	"bytes"
-	"io"
-    "fmt"
-
-    "encoding/binary"
+	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
-
-    "math"
+	"fmt"
+	"io"
 	"math/big"
 
-    "github.com/golang/glog"
 	"github.com/juju/errors"
-    "github.com/martinboehm/btcd/blockchain"
+	"github.com/martinboehm/btcd/blockchain"
 	"github.com/martinboehm/btcd/wire"
 	"github.com/martinboehm/btcutil/chaincfg"
+	"github.com/trezor/blockbook/bchain"
+	"github.com/trezor/blockbook/bchain/coins/btc"
 )
 
+// magic numbers
 const (
-	// Net Magics
 	MainnetMagic wire.BitcoinNet = 0xe9fdc490
 	TestnetMagic wire.BitcoinNet = 0xba657645
 
 	// Zerocoin op codes
 	OP_ZEROCOINMINT  = 0xc1
-	OP_ZEROCOINSPEND  = 0xc2
-
-    // Labels
-    ZCMINT_LABEL = "Zerocoin Mint"
-    ZCSPEND_LABEL = "Zerocoin Spend"
-    CBASE_LABEL = "CoinBase TX"
-    CSTAKE_LABEL = "CoinStake TX"
-
-    // Dummy Internal Addresses
-    CBASE_ADDR_INT = 0xf7
-    CSTAKE_ADDR_INT = 0xf8
-
-    // Number of blocks per budget cycle
-    nBlocksPerPeriod = 43200
+	OP_ZEROCOINSPEND = 0xc2
 )
 
+// chain parameters
 var (
 	MainNetParams chaincfg.Params
 	TestNetParams chaincfg.Params
@@ -54,21 +37,21 @@ func init() {
 	// PIVX mainnet Address encoding magics
 	MainNetParams = chaincfg.MainNetParams
 	MainNetParams.Net = MainnetMagic
-	MainNetParams.PubKeyHashAddrID = []byte{30}    // starting with 'D'
+	MainNetParams.PubKeyHashAddrID = []byte{30} // starting with 'D'
 	MainNetParams.ScriptHashAddrID = []byte{13}
 	MainNetParams.PrivateKeyID = []byte{212}
 
 	// PIVX testnet Address encoding magics
 	TestNetParams = chaincfg.TestNet3Params
 	TestNetParams.Net = TestnetMagic
-	TestNetParams.PubKeyHashAddrID = []byte{139}   // starting with 'x' or 'y'
+	TestNetParams.PubKeyHashAddrID = []byte{139} // starting with 'x' or 'y'
 	TestNetParams.ScriptHashAddrID = []byte{19}
 	TestNetParams.PrivateKeyID = []byte{239}
 }
 
 // PivXParser handle
 type PivXParser struct {
-	*btc.BitcoinParser
+	*btc.BitcoinLikeParser
 	baseparser                         *bchain.BaseParser
 	BitcoinOutputScriptToAddressesFunc btc.OutputScriptToAddressesFunc
 }
@@ -76,8 +59,8 @@ type PivXParser struct {
 // NewPivXParser returns new PivXParser instance
 func NewPivXParser(params *chaincfg.Params, c *btc.Configuration) *PivXParser {
 	p := &PivXParser{
-		BitcoinParser: btc.NewBitcoinParser(params, c),
-		baseparser:    &bchain.BaseParser{},
+		BitcoinLikeParser: btc.NewBitcoinLikeParser(params, c),
+		baseparser:        &bchain.BaseParser{},
 	}
 	p.BitcoinOutputScriptToAddressesFunc = p.OutputScriptToAddressesFunc
 	p.OutputScriptToAddressesFunc = p.outputScriptToAddresses
@@ -88,7 +71,7 @@ func NewPivXParser(params *chaincfg.Params, c *btc.Configuration) *PivXParser {
 func GetChainParams(chain string) *chaincfg.Params {
 	if !chaincfg.IsRegistered(&MainNetParams) {
 		err := chaincfg.Register(&MainNetParams)
-      	if err == nil {
+		if err == nil {
 			err = chaincfg.Register(&TestNetParams)
 		}
 		if err != nil {
@@ -96,11 +79,11 @@ func GetChainParams(chain string) *chaincfg.Params {
 		}
 	}
 	switch chain {
-   	case "test":
+	case "test":
 		return &TestNetParams
-   	default:
+	default:
 		return &MainNetParams
-   	}
+	}
 }
 
 // ParseBlock parses raw block to our Block struct
@@ -113,12 +96,17 @@ func (p *PivXParser) ParseBlock(b []byte) (*bchain.Block, error) {
 		return nil, errors.Annotatef(err, "Deserialize")
 	}
 
-	if h.Version > 3 {
-		// Skip past AccumulatorCheckpoint which was added in pivx block version 4
+	if h.Version > 3 && h.Version < 7 {
+		// Skip past AccumulatorCheckpoint (block version 4, 5 and 6)
 		r.Seek(32, io.SeekCurrent)
 	}
 
-	err = utils.DecodeTransactions(r, 0, wire.WitnessEncoding, &w)
+	if h.Version > 7 {
+		// Skip new hashFinalSaplingRoot (block version 8 or newer)
+		r.Seek(32, io.SeekCurrent)
+	}
+
+	err = p.PivxDecodeTransactions(r, 0, &w)
 	if err != nil {
 		return nil, errors.Annotatef(err, "DecodeTransactions")
 	}
@@ -159,7 +147,7 @@ func (p *PivXParser) ParseTx(b []byte) (*bchain.Tx, error) {
 	return &tx, nil
 }
 
-// Parses tx and adds handling for OP_ZEROCOINSPEND inputs
+// TxFromMsgTx parses tx and adds handling for OP_ZEROCOINSPEND inputs
 func (p *PivXParser) TxFromMsgTx(t *wire.MsgTx, parseAddresses bool) bchain.Tx {
 	vin := make([]bchain.Vin, len(t.TxIn))
 	for i, in := range t.TxIn {
@@ -199,13 +187,6 @@ func (p *PivXParser) TxFromMsgTx(t *wire.MsgTx, parseAddresses bool) bchain.Tx {
 			// missing: Asm,
 			// missing: Type,
 		}
-        if s.Hex == "" {
-            if blockchain.IsCoinBaseTx(t) && !isZeroCoinSpendScript(t.TxIn[0].SignatureScript){
-                s.Hex = fmt.Sprintf("%02x", CBASE_ADDR_INT)
-            } else {
-                s.Hex = fmt.Sprintf("%02x", CSTAKE_ADDR_INT)
-            }
-        }
 		var vs big.Int
 		vs.SetInt64(out.Value)
 		vout[i] = bchain.Vout{
@@ -248,33 +229,19 @@ func (p *PivXParser) ParseTxFromJson(msg json.RawMessage) (*bchain.Tx, error) {
 		if vout.ScriptPubKey.Addresses == nil {
 			vout.ScriptPubKey.Addresses = []string{}
 		}
+	}
 
-        if vout.ScriptPubKey.Hex == "" {
-            if isCoinbaseTx(tx) {
-                vout.ScriptPubKey.Hex = fmt.Sprintf("%02x", CBASE_ADDR_INT)
-            } else {
-                vout.ScriptPubKey.Hex = fmt.Sprintf("%02x", CSTAKE_ADDR_INT)
-            }
-        }
-
-    }
 	return &tx, nil
 }
 
 // outputScriptToAddresses converts ScriptPubKey to bitcoin addresses
 func (p *PivXParser) outputScriptToAddresses(script []byte) ([]string, bool, error) {
 	if isZeroCoinSpendScript(script) {
-		return []string{ZCSPEND_LABEL}, false, nil
+		return []string{"Zerocoin Spend"}, false, nil
 	}
 	if isZeroCoinMintScript(script) {
-		return []string{ZCMINT_LABEL}, false, nil
+		return []string{"Zerocoin Mint"}, false, nil
 	}
-    if isCoinBaseFakeAddr(script) {
-        return []string{CBASE_LABEL}, false, nil
-    }
-    if isCoinStakeFakeAddr(script) {
-        return []string{CSTAKE_LABEL}, false, nil
-    }
 
 	rv, s, _ := p.BitcoinOutputScriptToAddressesFunc(script)
 	return rv, s, nil
@@ -294,43 +261,89 @@ func (p *PivXParser) GetAddrDescForUnknownInput(tx *bchain.Tx, input int) bchain
 	return s
 }
 
+func (p *PivXParser) PivxDecodeTransactions(r *bytes.Reader, pver uint32, blk *wire.MsgBlock) error {
+	maxTxPerBlock := uint64((wire.MaxBlockPayload / 10) + 1)
 
-func (p *PivXParser) GetValueSatForUnknownInput(tx *bchain.Tx, input int) *big.Int {
-	if len(tx.Vin) > input {
-		scriptHex := tx.Vin[input].ScriptSig.Hex
-		if scriptHex != "" {
-			script, _ := hex.DecodeString(scriptHex)
-			if isZeroCoinSpendScript(script) {
-                valueSat,  err := p.GetValueSatFromZerocoinSpend(script)
-                if err != nil {
-                    glog.Warningf("tx %v: input %d unable to convert denom to big int", tx.Txid, input)
-                    return big.NewInt(0)
-                }
-                return valueSat
-            }
-		}
+	txCount, err := wire.ReadVarInt(r, pver)
+	if err != nil {
+		return err
 	}
-    return big.NewInt(0)
+
+	// Prevent more transactions than could possibly fit into a block.
+	// It would be possible to cause memory exhaustion and panics without
+	// a sane upper bound on this count.
+	if txCount > maxTxPerBlock {
+		str := fmt.Sprintf("too many transactions to fit into a block "+
+			"[count %d, max %d]", txCount, maxTxPerBlock)
+		return &wire.MessageError{Func: "utils.decodeTransactions", Description: str}
+	}
+
+	blk.Transactions = make([]*wire.MsgTx, 0, txCount)
+	for i := uint64(0); i < txCount; i++ {
+		tx := wire.MsgTx{}
+
+		// read version & seek back to original state
+		var version uint32 = 0
+		if err = binary.Read(r, binary.LittleEndian, &version); err != nil {
+			return err
+		}
+		if _, err = r.Seek(-4, io.SeekCurrent); err != nil {
+			return err
+		}
+
+		txVersion := version & 0xffff
+		enc := wire.WitnessEncoding
+
+		// shielded transactions
+		if txVersion >= 3 {
+			enc = wire.BaseEncoding
+		}
+
+		err := p.PivxDecode(&tx, r, pver, enc)
+		if err != nil {
+			return err
+		}
+		blk.Transactions = append(blk.Transactions, &tx)
+	}
+
+	return nil
 }
 
+func (p *PivXParser) PivxDecode(MsgTx *wire.MsgTx, r *bytes.Reader, pver uint32, enc wire.MessageEncoding) error {
+	if err := MsgTx.BtcDecode(r, pver, enc); err != nil {
+		return err
+	}
 
-// Decodes the amount from the zerocoin spend script
-func (p *PivXParser) GetValueSatFromZerocoinSpend(signatureScript []byte) (*big.Int, error) {
-    r := bytes.NewReader(signatureScript)
-    r.Seek(1, io.SeekCurrent)                       // skip opcode
-    len, err := Uint8(r)                            // get serialized coinspend size
-    if err != nil {
-        return nil, err
-    }
-    r.Seek(int64(len), io.SeekCurrent)              // and skip its bytes
-    denom, err := Uint32(r, binary.LittleEndian)    // get denomination
-    if err != nil {
-        return nil, err
-    }
+	// extra
+	version := uint32(MsgTx.Version)
+	txVersion := version & 0xffff
 
-    return big.NewInt(int64(denom)*1e8), nil
+	if txVersion >= 3 {
+		// valueBalance
+		r.Seek(9, io.SeekCurrent)
+
+		vShieldedSpend, err := wire.ReadVarInt(r, 0)
+		if err != nil {
+			return err
+		}
+		if vShieldedSpend > 0 {
+			r.Seek(int64(vShieldedSpend*384), io.SeekCurrent)
+		}
+
+		vShieldOutput, err := wire.ReadVarInt(r, 0)
+		if err != nil {
+			return err
+		}
+		if vShieldOutput > 0 {
+			r.Seek(int64(vShieldOutput*948), io.SeekCurrent)
+		}
+
+		// bindingSig
+		r.Seek(64, io.SeekCurrent)
+	}
+
+	return nil
 }
-
 
 // Checks if script is OP_ZEROCOINMINT
 func isZeroCoinMintScript(signatureScript []byte) bool {
@@ -340,19 +353,4 @@ func isZeroCoinMintScript(signatureScript []byte) bool {
 // Checks if script is OP_ZEROCOINSPEND
 func isZeroCoinSpendScript(signatureScript []byte) bool {
 	return len(signatureScript) >= 100 && signatureScript[0] == OP_ZEROCOINSPEND
-}
-
-// Checks if script is dummy internal address for Coinbase
-func isCoinBaseFakeAddr(signatureScript []byte) bool {
-	return len(signatureScript) == 1 && signatureScript[0] == CBASE_ADDR_INT
-}
-
-// Checks if script is dummy internal address for Stake
-func isCoinStakeFakeAddr(signatureScript []byte) bool {
-	return len(signatureScript) == 1 && signatureScript[0] == CSTAKE_ADDR_INT
-}
-
-// Checks if a Tx is coinbase
-func isCoinbaseTx(tx bchain.Tx) bool {
-    return len(tx.Vin) == 1 && tx.Vin[0].Coinbase != "" && tx.Vin[0].Sequence == math.MaxUint32
 }

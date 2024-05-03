@@ -1,20 +1,24 @@
 package fujicoin
 
 import (
-	"blockbook/bchain/coins/btc"
-
 	"github.com/martinboehm/btcd/wire"
 	"github.com/martinboehm/btcutil/chaincfg"
+	"github.com/trezor/blockbook/bchain/coins/btc"
 )
 
 const (
+	// MainnetMagic is mainnet network constant
 	MainnetMagic wire.BitcoinNet = 0x696a7566
+	// TestnetMagic is testnet network constant
 	TestnetMagic wire.BitcoinNet = 0x66756a69
+	// RegtestMagic is regtest network constant
 	RegtestMagic wire.BitcoinNet = 0x66756a69
 )
 
 var (
+	// MainNetParams are parser parameters for mainnet
 	MainNetParams chaincfg.Params
+	// TestNetParams are parser parameters for testnet
 	TestNetParams chaincfg.Params
 )
 
@@ -39,7 +43,9 @@ type FujicoinParser struct {
 
 // NewFujicoinParser returns new FujicoinParser instance
 func NewFujicoinParser(params *chaincfg.Params, c *btc.Configuration) *FujicoinParser {
-	return &FujicoinParser{BitcoinParser: btc.NewBitcoinParser(params, c)}
+	p := &FujicoinParser{BitcoinParser: btc.NewBitcoinParser(params, c)}
+	p.VSizeSupport = false
+	return p
 }
 
 // GetChainParams contains network parameters for the main Fujicoin network,

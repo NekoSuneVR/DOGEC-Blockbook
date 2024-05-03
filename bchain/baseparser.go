@@ -6,15 +6,17 @@ import (
 	"math/big"
 	"strings"
 
-	"github.com/gogo/protobuf/proto"
 	"github.com/golang/glog"
 	"github.com/juju/errors"
+	"github.com/trezor/blockbook/common"
+	"google.golang.org/protobuf/proto"
 )
 
 // BaseParser implements data parsing/handling functionality base for all other parsers
 type BaseParser struct {
 	BlockAddressesToKeep int
 	AmountDecimalPoint   int
+	AddressAliases       bool
 }
 
 // ParseBlock parses raw block to our Block struct - currently not implemented
@@ -39,9 +41,9 @@ func (p *BaseParser) GetAddrDescForUnknownInput(tx *Tx, input int) AddressDescri
 
 const zeros = "0000000000000000000000000000000000000000"
 
-// AmountToBigInt converts amount in json.Number (string) to big.Int
+// AmountToBigInt converts amount in common.JSONNumber (string) to big.Int
 // it uses string operations to avoid problems with rounding
-func (p *BaseParser) AmountToBigInt(n json.Number) (big.Int, error) {
+func (p *BaseParser) AmountToBigInt(n common.JSONNumber) (big.Int, error) {
 	var r big.Int
 	s := string(n)
 	i := strings.IndexByte(s, '.')
@@ -100,6 +102,11 @@ func (p *BaseParser) AmountToDecimalString(a *big.Int) string {
 // AmountDecimals returns number of decimal places in amounts
 func (p *BaseParser) AmountDecimals() int {
 	return p.AmountDecimalPoint
+}
+
+// UseAddressAliases returns true if address aliases are enabled
+func (p *BaseParser) UseAddressAliases() bool {
+	return p.AddressAliases
 }
 
 // ParseTxFromJson parses JSON message containing transaction and returns Tx struct
@@ -161,6 +168,16 @@ func (p *BaseParser) GetChainType() ChainType {
 	return ChainBitcoinType
 }
 
+// MinimumCoinbaseConfirmations returns minimum number of confirmations a coinbase transaction must have before it can be spent
+func (p *BaseParser) MinimumCoinbaseConfirmations() int {
+	return 0
+}
+
+// SupportsVSize returns true if vsize of a transaction should be computed and returned by API
+func (p *BaseParser) SupportsVSize() bool {
+	return false
+}
+
 // PackTx packs transaction to byte array using protobuf
 func (p *BaseParser) PackTx(tx *Tx, height uint32, blockTime int64) ([]byte, error) {
 	var err error
@@ -170,8 +187,9 @@ func (p *BaseParser) PackTx(tx *Tx, height uint32, blockTime int64) ([]byte, err
 		if err != nil {
 			return nil, errors.Annotatef(err, "Vin %v Hex %v", i, vi.ScriptSig.Hex)
 		}
+		// coinbase txs do not have Vin.txid
 		itxid, err := p.PackTxid(vi.Txid)
-		if err != nil {
+		if err != nil && err != ErrTxidMissing {
 			return nil, errors.Annotatef(err, "Vin %v Txid %v", i, vi.Txid)
 		}
 		pti[i] = &ProtoTransaction_VinType{
@@ -203,6 +221,7 @@ func (p *BaseParser) PackTx(tx *Tx, height uint32, blockTime int64) ([]byte, err
 		Vin:       pti,
 		Vout:      pto,
 		Version:   tx.Version,
+		VSize:     tx.VSize,
 	}
 	if pt.Hex, err = hex.DecodeString(tx.Hex); err != nil {
 		return nil, errors.Annotatef(err, "Hex %v", tx.Hex)
@@ -263,18 +282,43 @@ func (p *BaseParser) UnpackTx(buf []byte) (*Tx, uint32, error) {
 		Vin:       vin,
 		Vout:      vout,
 		Version:   pt.Version,
+		VSize:     pt.VSize,
 	}
 	return &tx, pt.Height, nil
 }
 
-// EthereumTypeGetErc20FromTx is unsupported
-func (p *BaseParser) EthereumTypeGetErc20FromTx(tx *Tx) ([]Erc20Transfer, error) {
+// IsAddrDescIndexable returns true if AddressDescriptor should be added to index
+// by default all AddressDescriptors are indexable
+func (p *BaseParser) IsAddrDescIndexable(addrDesc AddressDescriptor) bool {
+	return true
+}
+
+// ParseXpub is unsupported
+func (p *BaseParser) ParseXpub(xpub string) (*XpubDescriptor, error) {
 	return nil, errors.New("Not supported")
 }
 
+// DerivationBasePath is unsupported
+func (p *BaseParser) DerivationBasePath(descriptor *XpubDescriptor) (string, error) {
+	return "", errors.New("Not supported")
+}
 
-// Pivx Additions
-// GetValueSatForUnknownInput returns 0
-func (p *BaseParser) GetValueSatForUnknownInput(tx *Tx, input int) *big.Int {
-	return big.NewInt(0)
+// DeriveAddressDescriptors is unsupported
+func (p *BaseParser) DeriveAddressDescriptors(descriptor *XpubDescriptor, change uint32, indexes []uint32) ([]AddressDescriptor, error) {
+	return nil, errors.New("Not supported")
+}
+
+// DeriveAddressDescriptorsFromTo is unsupported
+func (p *BaseParser) DeriveAddressDescriptorsFromTo(descriptor *XpubDescriptor, change uint32, fromIndex uint32, toIndex uint32) ([]AddressDescriptor, error) {
+	return nil, errors.New("Not supported")
+}
+
+// EthereumTypeGetTokenTransfersFromTx is unsupported
+func (p *BaseParser) EthereumTypeGetTokenTransfersFromTx(tx *Tx) (TokenTransfers, error) {
+	return nil, errors.New("Not supported")
+}
+
+// FormatAddressAlias makes possible to do coin specific formatting to an address alias
+func (p *BaseParser) FormatAddressAlias(address string, name string) string {
+	return name
 }

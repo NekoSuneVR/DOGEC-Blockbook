@@ -1,20 +1,22 @@
 package namecoin
 
 import (
-	"blockbook/bchain"
-	"blockbook/bchain/coins/btc"
-	"blockbook/bchain/coins/utils"
 	"bytes"
 
 	"github.com/martinboehm/btcd/wire"
 	"github.com/martinboehm/btcutil/chaincfg"
+	"github.com/trezor/blockbook/bchain"
+	"github.com/trezor/blockbook/bchain/coins/btc"
+	"github.com/trezor/blockbook/bchain/coins/utils"
 )
 
 const (
+	// MainnetMagic is mainnet network constant
 	MainnetMagic wire.BitcoinNet = 0xfeb4bef9
 )
 
 var (
+	// MainNetParams are parser parameters for mainnet
 	MainNetParams chaincfg.Params
 )
 
@@ -27,12 +29,14 @@ func init() {
 
 // NamecoinParser handle
 type NamecoinParser struct {
-	*btc.BitcoinParser
+	*btc.BitcoinLikeParser
 }
 
 // NewNamecoinParser returns new NamecoinParser instance
 func NewNamecoinParser(params *chaincfg.Params, c *btc.Configuration) *NamecoinParser {
-	return &NamecoinParser{BitcoinParser: btc.NewBitcoinParser(params, c)}
+	p := &NamecoinParser{BitcoinLikeParser: btc.NewBitcoinLikeParser(params, c)}
+	p.VSizeSupport = true
+	return p
 }
 
 // GetChainParams contains network parameters for the main Namecoin network,

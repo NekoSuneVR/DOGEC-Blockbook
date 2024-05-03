@@ -1,12 +1,12 @@
 package liquid
 
 import (
-	"blockbook/bchain"
-	"blockbook/bchain/coins/btc"
 	"encoding/json"
 
 	"github.com/golang/glog"
 	"github.com/juju/errors"
+	"github.com/trezor/blockbook/bchain"
+	"github.com/trezor/blockbook/bchain/coins/btc"
 )
 
 // LiquidRPC is an interface to JSON-RPC bitcoind service.
@@ -31,10 +31,11 @@ func NewLiquidRPC(config json.RawMessage, pushHandler func(bchain.NotificationTy
 
 // Initialize initializes GameCreditsRPC instance.
 func (b *LiquidRPC) Initialize() error {
-	chainName, err := b.GetChainInfoAndInitializeMempool(b)
+	ci, err := b.GetChainInfo()
 	if err != nil {
 		return err
 	}
+	chainName := ci.Chain
 
 	glog.Info("Chain name ", chainName)
 	params := GetChainParams(chainName)

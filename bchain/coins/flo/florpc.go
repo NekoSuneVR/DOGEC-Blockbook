@@ -1,12 +1,12 @@
 package flo
 
 import (
-	"blockbook/bchain"
-	"blockbook/bchain/coins/btc"
 	"encoding/json"
-	"github.com/juju/errors"
 
 	"github.com/golang/glog"
+	"github.com/juju/errors"
+	"github.com/trezor/blockbook/bchain"
+	"github.com/trezor/blockbook/bchain/coins/btc"
 )
 
 // FloRPC is an interface to JSON-RPC bitcoind service.
@@ -32,10 +32,11 @@ func NewFloRPC(config json.RawMessage, pushHandler func(bchain.NotificationType)
 
 // Initialize initializes FloRPC instance.
 func (f *FloRPC) Initialize() error {
-	chainName, err := f.GetChainInfoAndInitializeMempool(f)
+	ci, err := f.GetChainInfo()
 	if err != nil {
 		return err
 	}
+	chainName := ci.Chain
 
 	glog.Info("Chain name ", chainName)
 	params := GetChainParams(chainName)
@@ -77,7 +78,7 @@ func (f *FloRPC) GetBlock(hash string, height uint32) (*bchain.Block, error) {
 	if err != nil {
 		return nil, err
 	}
-	data, err := f.GetBlockRaw(hash)
+	data, err := f.GetBlockBytes(hash)
 	if err != nil {
 		return nil, err
 	}

@@ -1,10 +1,8 @@
-// +build unittest
+//go:build unittest
 
 package digibyte
 
 import (
-	"blockbook/bchain"
-	"blockbook/bchain/coins/btc"
 	"encoding/hex"
 	"math/big"
 	"os"
@@ -12,6 +10,8 @@ import (
 	"testing"
 
 	"github.com/martinboehm/btcutil/chaincfg"
+	"github.com/trezor/blockbook/bchain"
+	"github.com/trezor/blockbook/bchain/coins/btc"
 )
 
 func TestMain(m *testing.M) {
@@ -90,6 +90,7 @@ func init() {
 		Blocktime: 1532239774,
 		Txid:      "0dcf2530419b9ef525a69f6a15e4d699be1dc9a4ac643c9581b6c57acf25eabf",
 		LockTime:  7000000,
+		VSize:     226,
 		Version:   1,
 		Vin: []bchain.Vin{
 			{

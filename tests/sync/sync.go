@@ -1,17 +1,18 @@
-// +build integration
+//go:build integration
 
 package sync
 
 import (
-	"blockbook/bchain"
-	"blockbook/common"
-	"blockbook/db"
 	"encoding/json"
 	"errors"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/trezor/blockbook/bchain"
+	"github.com/trezor/blockbook/common"
+	"github.com/trezor/blockbook/db"
 )
 
 var testMap = map[string]func(t *testing.T, th *TestHandler){
@@ -54,7 +55,7 @@ type BlockInfo struct {
 	TxDetails []*bchain.Tx `json:"txDetails"`
 }
 
-func IntegrationTest(t *testing.T, coin string, chain bchain.BlockChain, testConfig json.RawMessage) {
+func IntegrationTest(t *testing.T, coin string, chain bchain.BlockChain, mempool bchain.Mempool, testConfig json.RawMessage) {
 	tests, err := getTests(testConfig)
 	if err != nil {
 		t.Fatalf("Failed loading of test list: %s", err)
@@ -144,7 +145,7 @@ func makeRocksDB(parser bchain.BlockChainParser, m *common.Metrics, is *common.I
 		return nil, nil, err
 	}
 
-	d, err := db.NewRocksDB(p, 1<<17, 1<<14, parser, m)
+	d, err := db.NewRocksDB(p, 1<<17, 1<<14, parser, m, false)
 	if err != nil {
 		return nil, nil, err
 	}

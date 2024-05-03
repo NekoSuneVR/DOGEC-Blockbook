@@ -4,89 +4,93 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width,initial-scale=1.0,shrink-to-fit=no">
-    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css" integrity="sha384-Gn5384xqQ1aoWXA+058RXPxPg6fy4IWvTNh0E263XmFcJlSAwiGgFAW/dAiS6JXm" crossorigin="anonymous">
-    <link rel="stylesheet" href="/static/css/dark.css">
+    <link rel="stylesheet" href="/static/css/bootstrap.5.2.2.min.css">
+    <link rel="stylesheet" href="/static/css/main{{.Minified}}.css">
+    <script>var hasSecondary={{if .SecondaryCoin}}true{{else}}false{{end}};</script>
+    <script src="/static/js/bootstrap.bundle.5.2.2.min.js"></script>
+    <script src="/static/js/main{{.Minified}}.js"></script>
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
-    <meta name="description" content="{{.CoinName}} Explorer">
-    <meta property="og:image" content="https://raw.githubusercontent.com/Liquid369/DOGEC-Blockbook/DOGEC_v0.2/static/pivx.png" />
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.8.0/Chart.min.js"></script>
-    <title>{{.CoinName}} Explorer</title>
+    <meta name="description" content="Trezor {{.CoinLabel}} Explorer">
+    <title>Trezor {{.CoinLabel}} Explorer</title>
 </head>
 
 <body>
     <header id="header">
-        <div class="container">
-            <nav class="navbar navbar-expand navbar-dark bg-trezor">
-                <a class="navbar-brand d-none d-sm-flex" href="/" title="Home">
-                    <div alt="Logo" class="trezor-logo-svg-white">
-                        <img src="/static/pivx.png" height="42" />
-                    </div>
+        <nav class="navbar navbar-expand-lg">
+            <div class="container">
+                <a class="navbar-brand" href="/" title="Home">
+                    <span class="trezor-logo"></span>
+                    <span style="padding-left: 140px;">{{.CoinLabel}} Explorer</span>
                 </a>
-                <a class="navbar-brand d-block d-sm-none" href="/" title="Home">
-                    <div alt="Logo-sm" class="trezor-logo-svg-white">
-                        <img src="/static/pivx-sm.png" height="42" />
+                {{if .InternalExplorer}}
+                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarSupportedContent" aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+                    <span class="navbar-toggler-icon"></span>
+                </button>
+                <div class="collapse navbar-collapse" id="navbarSupportedContent">
+                    <ul class="navbar-nav m-md-auto">
+                        <li class="nav-item pe-xl-4">
+                            <a href="/blocks" class="nav-link">Blocks</a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="/" class="nav-link">Status</a>
+                        </li>
+                    </ul>
+                    <span class="navbar-form">
+                        <form class="d-flex" id="search" action="/search" method="get">
+                            <input name="q" type="text" class="form-control form-control-lg" placeholder="Search for block, transaction, address or xpub" focus="true">
+                            <button class="btn" type="submit">
+                                <span class="search-icon"></span>
+                            </button>
+                        </form>
+                    </span>
+                    {{if .SecondaryCoin}}
+                    <div class="bb-group ms-lg-2 mt-2 mt-lg-0" role="group" aria-label="Currency switch">
+                        <input type="radio" class="btn-check" name="btnradio" id="primary-coin" autocomplete="off"{{if not .UseSecondaryCoin}} checked{{end}}>
+                        <label class="btn" for="primary-coin">{{.CoinShortcut}}</label>
+                        <input type="radio" class="btn-check" name="btnradio" id="secondary-coin" autocomplete="off"{{if .UseSecondaryCoin}} checked{{end}}>
+                        <label class="btn" for="secondary-coin">{{.SecondaryCoin}}</label>
+                        <button type="button" class="btn dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false"></button>
+                        <div class="dropdown-menu row">
+                            {{range $c := .SecondaryCurrencies}}
+                            <div class="col-3"><a href="?secondary={{$c}}&use_secondary=true">{{$c}}</a></div>
+                            {{end}}
+                        </div>
                     </div>
-                </a>
-                {{- if not .IsIndex -}}
-                <span class="navbar-text ml-md-auto d-none d-md-flex">
-                    <a href="/" class="nav-link">{{.CoinLabel}} Explorer</a>
-                </span>
-                {{- end -}}
-                {{- if .InternalExplorer -}}
-                <ul class="navbar-nav flex-row ml-md-auto">
-                    <li class="nav-item">
-                        <a href="/" class="nav-link">Index</a>
-                    </li>
-                    <li class="nav-item">
-                        <a href="/blocks" class="nav-link">Blocks</a>
-                    </li>
-                    <li class="nav-item">
-                        <a href="/charts" class="nav-link">Charts</a>
-                    </li>
-                    <li class="nav-item">
-                        <a href="/status" class="nav-link">Status</a>
-                    </li>
-                </ul>
-                {{- if not .IsIndex -}}
-                <span class="ml-md-auto navbar-form navbar-left">
-                    <form id="search" action="/search" method="get">
-                        <input name="q" type="text" class="form-control" placeholder="Search for block, transaction or address" focus="true">
-                    </form>
-                </span>
-                {{- end -}}
-                {{- end -}}
-                <ul class="navbar-nav flex-row ml-md-auto d-none d-lg-flex ">
-                    <li class="nav-item">
-                        <a href="https://dogec.io/" class="nav-link" target="_blank">DogeC.io</a>
-                    </li>
-                </ul>
-            </nav>
-        </div>
+                    {{end}}
+                </div>
+                {{end}}
+            </div>
+        </nav>
     </header>
     <main id="wrap">
         <div class="container">
             {{- template "specific" . -}}
         </div>
     </main>
-    <footer id="footer" class="footer">
+    <footer id="footer">
         <div class="container">
-            <nav class="navbar navbar-expand-lg navbar-dark bg-trezor">
-                <ul class="navbar-nav flex-row">
-                    <li class="nav-item">
-                        <a class="nav-link" href="https://github.com/random-zebra" target="_blank" rel="noopener noreferrer">© 2019 Random.Zebra</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="http://satoshilabs.com/" target="_blank" rel="noopener noreferrer">© 2018 SatoshiLabs</a>
-                    </li>
-                </ul>
-                <span class="d-none ml-md-auto d-sm-flex navbar-form navbar-nav">
-                    <a href="/sendtx" class="nav-link active">Send Transaction</a>
+            <nav class="navbar navbar-dark">
+                <span class="navbar-nav">
+                    <a class="nav-link" href="https://satoshilabs.com/" target="_blank" rel="noopener noreferrer">Created by SatoshiLabs</a>
                 </span>
-                <ul class="navbar-nav flex-row ml-md-auto d-none d-sm-flex">
-                    <li class="nav-item">
-                        <a class="nav-link" target="_blank" rel="noopener noreferrer" href="http://trezor.io">made with TREZOR Blockbook</a>
-                    </li>
-                </ul>
+                <span class="navbar-nav ml-md-auto">
+                    <a class="nav-link" href="{{- .TOSLink -}}" target="_blank" rel="noopener noreferrer">Terms of Use</a>
+                </span>
+                <span class="navbar-nav ml-md-auto d-md-flex d-none">
+                    <a class="nav-link" href="https://trezor.io/" target="_blank" rel="noopener noreferrer">Trezor</a>
+                </span>
+                <span class="navbar-nav ml-md-auto d-md-flex d-none">
+                    <a class="nav-link" href="https://trezor.io/trezor-suite" target="_blank" rel="noopener noreferrer">Suite</a>
+                </span>
+                <span class="navbar-nav ml-md-auto d-md-flex d-none">
+                    <a class="nav-link" href="https://trezor.io/support" target="_blank" rel="noopener noreferrer">Support</a>
+                </span>
+                <span class="navbar-nav ml-md-auto">
+                    <a class="nav-link" href="/sendtx">Send Transaction</a>
+                </span>
+                <span class="navbar-nav ml-md-auto d-lg-flex d-none">
+                    <a class="nav-link" href="https://trezor.io/compare" target="_blank" rel="noopener noreferrer">Don't have a Trezor? Get one!</a>
+                </span>
             </nav>
         </div>
     </footer>

@@ -1,10 +1,6 @@
 package server
 
 import (
-	"blockbook/api"
-	"blockbook/bchain"
-	"blockbook/common"
-	"blockbook/db"
 	"encoding/json"
 	"math/big"
 	"net/http"
@@ -17,6 +13,11 @@ import (
 	"github.com/juju/errors"
 	gosocketio "github.com/martinboehm/golang-socketio"
 	"github.com/martinboehm/golang-socketio/transport"
+	"github.com/trezor/blockbook/api"
+	"github.com/trezor/blockbook/bchain"
+	"github.com/trezor/blockbook/common"
+	"github.com/trezor/blockbook/db"
+	"github.com/trezor/blockbook/fiat"
 )
 
 // SocketIoServer is handle to SocketIoServer
@@ -26,14 +27,15 @@ type SocketIoServer struct {
 	txCache     *db.TxCache
 	chain       bchain.BlockChain
 	chainParser bchain.BlockChainParser
+	mempool     bchain.Mempool
 	metrics     *common.Metrics
 	is          *common.InternalState
 	api         *api.Worker
 }
 
 // NewSocketIoServer creates new SocketIo interface to blockbook and returns its handle
-func NewSocketIoServer(db *db.RocksDB, chain bchain.BlockChain, txCache *db.TxCache, metrics *common.Metrics, is *common.InternalState) (*SocketIoServer, error) {
-	api, err := api.NewWorker(db, chain, txCache, is)
+func NewSocketIoServer(db *db.RocksDB, chain bchain.BlockChain, mempool bchain.Mempool, txCache *db.TxCache, metrics *common.Metrics, is *common.InternalState, fiatRates *fiat.FiatRates) (*SocketIoServer, error) {
+	api, err := api.NewWorker(db, chain, mempool, txCache, metrics, is, fiatRates)
 	if err != nil {
 		return nil, err
 	}
@@ -64,6 +66,7 @@ func NewSocketIoServer(db *db.RocksDB, chain bchain.BlockChain, txCache *db.TxCa
 		txCache:     txCache,
 		chain:       chain,
 		chainParser: chain.GetChainParser(),
+		mempool:     mempool,
 		metrics:     metrics,
 		is:          is,
 		api:         api,
@@ -167,10 +170,14 @@ func (s *SocketIoServer) onMessage(c *gosocketio.Channel, req map[string]json.Ra
 			e.Error.Message = "Internal error"
 			rv = e
 		}
+		s.metrics.SocketIOPendingRequests.With((common.Labels{"method": method})).Dec()
 	}()
 	t := time.Now()
 	params := req["params"]
-	defer s.metrics.SocketIOReqDuration.With(common.Labels{"method": method}).Observe(float64(time.Since(t)) / 1e3) // in microseconds
+	s.metrics.SocketIOPendingRequests.With((common.Labels{"method": method})).Inc()
+	defer func() {
+		s.metrics.SocketIOReqDuration.With(common.Labels{"method": method}).Observe(float64(time.Since(t)) / 1e3) // in microseconds
+	}()
 	f, ok := onMessageHandlers[method]
 	if ok {
 		rv, err = f(s, params)
@@ -182,8 +189,8 @@ func (s *SocketIoServer) onMessage(c *gosocketio.Channel, req map[string]json.Ra
 		s.metrics.SocketIORequests.With(common.Labels{"method": method, "status": "success"}).Inc()
 		return rv
 	}
-	glog.Error(c.Id(), " onMessage ", method, ": ", errors.ErrorStack(err))
-	s.metrics.SocketIORequests.With(common.Labels{"method": method, "status": err.Error()}).Inc()
+	glog.Error(c.Id(), " onMessage ", method, ": ", errors.ErrorStack(err), ", data ", string(params))
+	s.metrics.SocketIORequests.With(common.Labels{"method": method, "status": "failure"}).Inc()
 	e := resultError{}
 	e.Error.Message = err.Error()
 	return e
@@ -224,7 +231,7 @@ func (s *SocketIoServer) getAddressTxids(addr []string, opts *addrOpts) (res res
 				return res, err
 			}
 		} else {
-			o, err := s.chain.GetMempoolTransactions(address)
+			o, err := s.mempool.GetTransactions(address)
 			if err != nil {
 				return res, err
 			}
@@ -292,15 +299,6 @@ type resultGetAddressHistory struct {
 	} `json:"result"`
 }
 
-func stringInSlice(a string, list []string) bool {
-	for _, b := range list {
-		if b == a {
-			return true
-		}
-	}
-	return false
-}
-
 func txToResTx(tx *api.Tx) resTx {
 	inputs := make([]txInputs, len(tx.Vin))
 	for i := range tx.Vin {
@@ -335,13 +333,15 @@ func txToResTx(tx *api.Tx) resTx {
 		outputs[i] = output
 	}
 	var h int
+	var blocktime int64
 	if tx.Confirmations == 0 {
 		h = -1
 	} else {
 		h = int(tx.Blockheight)
+		blocktime = tx.Blocktime
 	}
 	return resTx{
-		BlockTimestamp: tx.Blocktime,
+		BlockTimestamp: blocktime,
 		FeeSatoshis:    tx.FeesSat.AsInt64(),
 		Hash:           tx.Txid,
 		Height:         h,
@@ -587,7 +587,7 @@ type resultGetInfo struct {
 }
 
 func (s *SocketIoServer) getInfo() (res resultGetInfo, err error) {
-	_, height, _ := s.is.GetSyncState()
+	_, height, _, _ := s.is.GetSyncState()
 	res.Result.Blocks = int(height)
 	res.Result.Testnet = s.chain.IsTestnet()
 	res.Result.Network = s.chain.GetNetworkName()
@@ -675,7 +675,7 @@ func (s *SocketIoServer) onSubscribe(c *gosocketio.Channel, req []byte) interfac
 
 	onError := func(id, sc, err, detail string) {
 		glog.Error(id, " onSubscribe ", err, ": ", detail)
-		s.metrics.SocketIOSubscribes.With(common.Labels{"channel": sc, "status": err}).Inc()
+		s.metrics.SocketIOSubscribes.With(common.Labels{"channel": sc, "status": "failure"}).Inc()
 	}
 
 	r := string(req)
@@ -719,10 +719,14 @@ func (s *SocketIoServer) onSubscribe(c *gosocketio.Channel, req []byte) interfac
 	return nil
 }
 
-// OnNewBlockHash notifies users subscribed to bitcoind/hashblock about new block
-func (s *SocketIoServer) OnNewBlockHash(hash string) {
+func (s *SocketIoServer) onNewBlockHashAsync(hash string) {
 	c := s.server.BroadcastTo("bitcoind/hashblock", "bitcoind/hashblock", hash)
 	glog.Info("broadcasting new block hash ", hash, " to ", c, " channels")
+}
+
+// OnNewBlockHash notifies users subscribed to bitcoind/hashblock about new block
+func (s *SocketIoServer) OnNewBlockHash(hash string) {
+	go s.onNewBlockHashAsync(hash)
 }
 
 // OnNewTxAddr notifies users subscribed to bitcoind/addresstxid about new block

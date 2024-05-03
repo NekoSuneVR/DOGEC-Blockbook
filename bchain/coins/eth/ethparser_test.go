@@ -1,15 +1,16 @@
-// +build unittest
+//go:build unittest
 
 package eth
 
 import (
-	"blockbook/bchain"
-	"blockbook/tests/dbtestdata"
 	"encoding/hex"
 	"fmt"
 	"math/big"
 	"reflect"
 	"testing"
+
+	"github.com/trezor/blockbook/bchain"
+	"github.com/trezor/blockbook/tests/dbtestdata"
 )
 
 func TestEthParser_GetAddrDescFromAddress(t *testing.T) {
@@ -53,7 +54,7 @@ func TestEthParser_GetAddrDescFromAddress(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			p := NewEthereumParser(1)
+			p := NewEthereumParser(1, false)
 			got, err := p.GetAddrDescFromAddress(tt.args.address)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("EthParser.GetAddrDescFromAddress() error = %v, wantErr %v", err, tt.wantErr)
@@ -67,7 +68,7 @@ func TestEthParser_GetAddrDescFromAddress(t *testing.T) {
 	}
 }
 
-var testTx1, testTx2 bchain.Tx
+var testTx1, testTx2, testTx1Failed, testTx1NoStatus bchain.Tx
 
 func init() {
 
@@ -77,34 +78,34 @@ func init() {
 		Txid:      "0xcd647151552b5132b2aef7c9be00dc6f73afc5901dde157aab131335baaa853b",
 		Vin: []bchain.Vin{
 			{
-				Addresses: []string{"0x3e3a3d69dc66ba10737f531ed088954a9ec89d97"},
+				Addresses: []string{"0x3E3a3D69dc66bA10737F531ed088954a9EC89d97"},
 			},
 		},
 		Vout: []bchain.Vout{
 			{
 				ValueSat: *big.NewInt(1999622000000000000),
 				ScriptPubKey: bchain.ScriptPubKey{
-					Addresses: []string{"0x555ee11fbddc0e49a9bab358a8941ad95ffdb48f"},
+					Addresses: []string{"0x555Ee11FBDDc0E49A9bAB358A8941AD95fFDB48f"},
 				},
 			},
 		},
-		CoinSpecificData: completeTransaction{
-			Tx: &rpcTransaction{
+		CoinSpecificData: bchain.EthereumSpecificData{
+			Tx: &bchain.RpcTransaction{
 				AccountNonce:     "0xb26c",
 				GasPrice:         "0x430e23400",
 				GasLimit:         "0x5208",
-				To:               "0x555ee11fbddc0e49a9bab358a8941ad95ffdb48f",
+				To:               "0x555Ee11FBDDc0E49A9bAB358A8941AD95fFDB48f",
 				Value:            "0x1bc0159d530e6000",
 				Payload:          "0x",
 				Hash:             "0xcd647151552b5132b2aef7c9be00dc6f73afc5901dde157aab131335baaa853b",
 				BlockNumber:      "0x41eee8",
-				From:             "0x3e3a3d69dc66ba10737f531ed088954a9ec89d97",
+				From:             "0x3E3a3D69dc66bA10737F531ed088954a9EC89d97",
 				TransactionIndex: "0xa",
 			},
-			Receipt: &rpcReceipt{
+			Receipt: &bchain.RpcReceipt{
 				GasUsed: "0x5208",
 				Status:  "0x1",
-				Logs:    []*rpcLog{},
+				Logs:    []*bchain.RpcLog{},
 			},
 		},
 	}
@@ -115,35 +116,35 @@ func init() {
 		Txid:      "0xa9cd088aba2131000da6f38a33c20169baee476218deea6b78720700b895b101",
 		Vin: []bchain.Vin{
 			{
-				Addresses: []string{"0x20cd153de35d469ba46127a0c8f18626b59a256a"},
+				Addresses: []string{"0x20cD153de35D469BA46127A0C8F18626b59a256A"},
 			},
 		},
 		Vout: []bchain.Vout{
 			{
 				ValueSat: *big.NewInt(0),
 				ScriptPubKey: bchain.ScriptPubKey{
-					Addresses: []string{"0x4af4114f73d1c1c903ac9e0361b379d1291808a2"},
+					Addresses: []string{"0x4af4114F73d1c1C903aC9E0361b379D1291808A2"},
 				},
 			},
 		},
-		CoinSpecificData: completeTransaction{
-			Tx: &rpcTransaction{
+		CoinSpecificData: bchain.EthereumSpecificData{
+			Tx: &bchain.RpcTransaction{
 				AccountNonce:     "0xd0",
 				GasPrice:         "0x9502f9000",
 				GasLimit:         "0x130d5",
-				To:               "0x4af4114f73d1c1c903ac9e0361b379d1291808a2",
+				To:               "0x4af4114F73d1c1C903aC9E0361b379D1291808A2",
 				Value:            "0x0",
 				Payload:          "0xa9059cbb000000000000000000000000555ee11fbddc0e49a9bab358a8941ad95ffdb48f00000000000000000000000000000000000000000000021e19e0c9bab2400000",
 				Hash:             "0xa9cd088aba2131000da6f38a33c20169baee476218deea6b78720700b895b101",
 				BlockNumber:      "0x41eee8",
-				From:             "0x20cd153de35d469ba46127a0c8f18626b59a256a",
+				From:             "0x20cD153de35D469BA46127A0C8F18626b59a256A",
 				TransactionIndex: "0x0"},
-			Receipt: &rpcReceipt{
+			Receipt: &bchain.RpcReceipt{
 				GasUsed: "0xcb39",
 				Status:  "0x1",
-				Logs: []*rpcLog{
+				Logs: []*bchain.RpcLog{
 					{
-						Address: "0x4af4114f73d1c1c903ac9e0361b379d1291808a2",
+						Address: "0x4af4114F73d1c1C903aC9E0361b379D1291808A2",
 						Data:    "0x00000000000000000000000000000000000000000000021e19e0c9bab2400000",
 						Topics: []string{
 							"0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef",
@@ -155,6 +156,83 @@ func init() {
 			},
 		},
 	}
+
+	testTx1Failed = bchain.Tx{
+		Blocktime: 1534858022,
+		Time:      1534858022,
+		Txid:      "0xcd647151552b5132b2aef7c9be00dc6f73afc5901dde157aab131335baaa853b",
+		Vin: []bchain.Vin{
+			{
+				Addresses: []string{"0x3E3a3D69dc66bA10737F531ed088954a9EC89d97"},
+			},
+		},
+		Vout: []bchain.Vout{
+			{
+				ValueSat: *big.NewInt(1999622000000000000),
+				ScriptPubKey: bchain.ScriptPubKey{
+					Addresses: []string{"0x555Ee11FBDDc0E49A9bAB358A8941AD95fFDB48f"},
+				},
+			},
+		},
+		CoinSpecificData: bchain.EthereumSpecificData{
+			Tx: &bchain.RpcTransaction{
+				AccountNonce:     "0xb26c",
+				GasPrice:         "0x430e23400",
+				GasLimit:         "0x5208",
+				To:               "0x555Ee11FBDDc0E49A9bAB358A8941AD95fFDB48f",
+				Value:            "0x1bc0159d530e6000",
+				Payload:          "0x",
+				Hash:             "0xcd647151552b5132b2aef7c9be00dc6f73afc5901dde157aab131335baaa853b",
+				BlockNumber:      "0x41eee8",
+				From:             "0x3E3a3D69dc66bA10737F531ed088954a9EC89d97",
+				TransactionIndex: "0xa",
+			},
+			Receipt: &bchain.RpcReceipt{
+				GasUsed: "0x5208",
+				Status:  "0x0",
+				Logs:    []*bchain.RpcLog{},
+			},
+		},
+	}
+
+	testTx1NoStatus = bchain.Tx{
+		Blocktime: 1534858022,
+		Time:      1534858022,
+		Txid:      "0xcd647151552b5132b2aef7c9be00dc6f73afc5901dde157aab131335baaa853b",
+		Vin: []bchain.Vin{
+			{
+				Addresses: []string{"0x3E3a3D69dc66bA10737F531ed088954a9EC89d97"},
+			},
+		},
+		Vout: []bchain.Vout{
+			{
+				ValueSat: *big.NewInt(1999622000000000000),
+				ScriptPubKey: bchain.ScriptPubKey{
+					Addresses: []string{"0x555Ee11FBDDc0E49A9bAB358A8941AD95fFDB48f"},
+				},
+			},
+		},
+		CoinSpecificData: bchain.EthereumSpecificData{
+			Tx: &bchain.RpcTransaction{
+				AccountNonce:     "0xb26c",
+				GasPrice:         "0x430e23400",
+				GasLimit:         "0x5208",
+				To:               "0x555Ee11FBDDc0E49A9bAB358A8941AD95fFDB48f",
+				Value:            "0x1bc0159d530e6000",
+				Payload:          "0x",
+				Hash:             "0xcd647151552b5132b2aef7c9be00dc6f73afc5901dde157aab131335baaa853b",
+				BlockNumber:      "0x41eee8",
+				From:             "0x3E3a3D69dc66bA10737F531ed088954a9EC89d97",
+				TransactionIndex: "0xa",
+			},
+			Receipt: &bchain.RpcReceipt{
+				GasUsed: "0x5208",
+				Status:  "",
+				Logs:    []*bchain.RpcLog{},
+			},
+		},
+	}
+
 }
 
 func TestEthereumParser_PackTx(t *testing.T) {
@@ -188,8 +266,26 @@ func TestEthereumParser_PackTx(t *testing.T) {
 			},
 			want: dbtestdata.EthTx2Packed,
 		},
+		{
+			name: "3",
+			args: args{
+				tx:        &testTx1Failed,
+				height:    4321000,
+				blockTime: 1534858022,
+			},
+			want: dbtestdata.EthTx1FailedPacked,
+		},
+		{
+			name: "4",
+			args: args{
+				tx:        &testTx1NoStatus,
+				height:    4321000,
+				blockTime: 1534858022,
+			},
+			want: dbtestdata.EthTx1NoStatusPacked,
+		},
 	}
-	p := NewEthereumParser(1)
+	p := NewEthereumParser(1, false)
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got, err := p.PackTx(tt.args.tx, tt.args.height, tt.args.blockTime)
@@ -229,8 +325,20 @@ func TestEthereumParser_UnpackTx(t *testing.T) {
 			want:  &testTx2,
 			want1: 4321000,
 		},
+		{
+			name:  "3",
+			args:  args{hex: dbtestdata.EthTx1FailedPacked},
+			want:  &testTx1Failed,
+			want1: 4321000,
+		},
+		{
+			name:  "4",
+			args:  args{hex: dbtestdata.EthTx1NoStatusPacked},
+			want:  &testTx1NoStatus,
+			want1: 4321000,
+		},
 	}
-	p := NewEthereumParser(1)
+	p := NewEthereumParser(1, false)
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			b, err := hex.DecodeString(tt.args.hex)
@@ -243,8 +351,8 @@ func TestEthereumParser_UnpackTx(t *testing.T) {
 				return
 			}
 			// DeepEqual has problems with pointers in completeTransaction
-			gs := got.CoinSpecificData.(completeTransaction)
-			ws := tt.want.CoinSpecificData.(completeTransaction)
+			gs := got.CoinSpecificData.(bchain.EthereumSpecificData)
+			ws := tt.want.CoinSpecificData.(bchain.EthereumSpecificData)
 			gc := *got
 			wc := *tt.want
 			gc.CoinSpecificData = nil
@@ -261,6 +369,127 @@ func TestEthereumParser_UnpackTx(t *testing.T) {
 			}
 			if got1 != tt.want1 {
 				t.Errorf("EthereumParser.UnpackTx() got1 = %v, want %v", got1, tt.want1)
+			}
+		})
+	}
+}
+
+func TestEthereumParser_GetEthereumTxData(t *testing.T) {
+	tests := []struct {
+		name string
+		tx   *bchain.Tx
+		want string
+	}{
+		{
+			name: "Test empty data",
+			tx:   &testTx1,
+			want: "0x",
+		},
+		{
+			name: "Test non empty data",
+			tx:   &testTx2,
+			want: "0xa9059cbb000000000000000000000000555ee11fbddc0e49a9bab358a8941ad95ffdb48f00000000000000000000000000000000000000000000021e19e0c9bab2400000",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := GetEthereumTxData(tt.tx)
+			if got.Data != tt.want {
+				t.Errorf("EthereumParser.GetEthereumTxData() = %v, want %v", got.Data, tt.want)
+			}
+		})
+	}
+}
+
+func TestEthereumParser_ParseErrorFromOutput(t *testing.T) {
+	tests := []struct {
+		name   string
+		output string
+		want   string
+	}{
+		{
+			name:   "ParseErrorFromOutput 1",
+			output: "0x08c379a000000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000031546f74616c206e756d626572206f662067726f757073206d7573742062652067726561746572207468616e207a65726f2e000000000000000000000000000000",
+			want:   "Total number of groups must be greater than zero.",
+		},
+		{
+			name:   "ParseErrorFromOutput 2",
+			output: "0x08c379a0000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000000126e6f7420656e6f7567682062616c616e63650000000000000000000000000000",
+			want:   "not enough balance",
+		},
+		{
+			name:   "ParseErrorFromOutput empty",
+			output: "",
+			want:   "",
+		},
+		{
+			name:   "ParseErrorFromOutput short",
+			output: "0x08c379a000000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000012",
+			want:   "",
+		},
+		{
+			name:   "ParseErrorFromOutput invalid signature",
+			output: "0x08c379b0000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000000126e6f7420656e6f7567682062616c616e63650000000000000000000000000000",
+			want:   "",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := ParseErrorFromOutput(tt.output)
+			if got != tt.want {
+				t.Errorf("EthereumParser.ParseErrorFromOutput() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestEthereumParser_PackInternalTransactionError_UnpackInternalTransactionError(t *testing.T) {
+	tests := []struct {
+		name     string
+		original string
+		packed   string
+		unpacked string
+	}{
+		{
+			name:     "execution reverted",
+			original: "execution reverted",
+			packed:   "\x01",
+			unpacked: "Reverted.",
+		},
+		{
+			name:     "out of gas",
+			original: "out of gas",
+			packed:   "\x02",
+			unpacked: "Out of gas.",
+		},
+		{
+			name:     "contract creation code storage out of gas",
+			original: "contract creation code storage out of gas",
+			packed:   "\x03",
+			unpacked: "Contract creation code storage out of gas.",
+		},
+		{
+			name:     "max code size exceeded",
+			original: "max code size exceeded",
+			packed:   "\x04",
+			unpacked: "Max code size exceeded.",
+		},
+		{
+			name:     "unknown error",
+			original: "unknown error",
+			packed:   "unknown error",
+			unpacked: "unknown error",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			packed := PackInternalTransactionError(tt.original)
+			if packed != tt.packed {
+				t.Errorf("EthereumParser.PackInternalTransactionError() = %v, want %v", packed, tt.packed)
+			}
+			unpacked := UnpackInternalTransactionError([]byte(packed))
+			if unpacked != tt.unpacked {
+				t.Errorf("EthereumParser.UnpackInternalTransactionError() = %v, want %v", unpacked, tt.unpacked)
 			}
 		})
 	}

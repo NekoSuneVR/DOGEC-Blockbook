@@ -8,25 +8,34 @@ import (
 
 // Metrics holds prometheus collectors for various metrics collected by Blockbook
 type Metrics struct {
-	SocketIORequests      *prometheus.CounterVec
-	SocketIOSubscribes    *prometheus.CounterVec
-	SocketIOClients       prometheus.Gauge
-	SocketIOReqDuration   *prometheus.HistogramVec
-	WebsocketRequests     *prometheus.CounterVec
-	WebsocketSubscribes   *prometheus.CounterVec
-	WebsocketClients      prometheus.Gauge
-	WebsocketReqDuration  *prometheus.HistogramVec
-	IndexResyncDuration   prometheus.Histogram
-	MempoolResyncDuration prometheus.Histogram
-	TxCacheEfficiency     *prometheus.CounterVec
-	RPCLatency            *prometheus.HistogramVec
-	IndexResyncErrors     *prometheus.CounterVec
-	IndexDBSize           prometheus.Gauge
-	ExplorerViews         *prometheus.CounterVec
-	MempoolSize           prometheus.Gauge
-	DbColumnRows          *prometheus.GaugeVec
-	DbColumnSize          *prometheus.GaugeVec
-	BlockbookAppInfo      *prometheus.GaugeVec
+	SocketIORequests         *prometheus.CounterVec
+	SocketIOSubscribes       *prometheus.CounterVec
+	SocketIOClients          prometheus.Gauge
+	SocketIOReqDuration      *prometheus.HistogramVec
+	WebsocketRequests        *prometheus.CounterVec
+	WebsocketSubscribes      *prometheus.GaugeVec
+	WebsocketClients         prometheus.Gauge
+	WebsocketReqDuration     *prometheus.HistogramVec
+	IndexResyncDuration      prometheus.Histogram
+	MempoolResyncDuration    prometheus.Histogram
+	TxCacheEfficiency        *prometheus.CounterVec
+	RPCLatency               *prometheus.HistogramVec
+	IndexResyncErrors        *prometheus.CounterVec
+	IndexDBSize              prometheus.Gauge
+	ExplorerViews            *prometheus.CounterVec
+	MempoolSize              prometheus.Gauge
+	EstimatedFee             *prometheus.GaugeVec
+	AvgBlockPeriod           prometheus.Gauge
+	DbColumnRows             *prometheus.GaugeVec
+	DbColumnSize             *prometheus.GaugeVec
+	BlockbookAppInfo         *prometheus.GaugeVec
+	BackendBestHeight        prometheus.Gauge
+	BlockbookBestHeight      prometheus.Gauge
+	ExplorerPendingRequests  *prometheus.GaugeVec
+	WebsocketPendingRequests *prometheus.GaugeVec
+	SocketIOPendingRequests  *prometheus.GaugeVec
+	XPubCacheSize            prometheus.Gauge
+	CoingeckoRequests        *prometheus.CounterVec
 }
 
 // Labels represents a collection of label name -> value mappings.
@@ -63,7 +72,7 @@ func GetMetrics(coin string) (*Metrics, error) {
 		prometheus.HistogramOpts{
 			Name:        "blockbook_socketio_req_duration",
 			Help:        "Socketio request duration by method (in microseconds)",
-			Buckets:     []float64{1, 5, 10, 25, 50, 75, 100, 250},
+			Buckets:     []float64{10, 100, 1_000, 10_000, 100_000, 1_000_000, 10_0000_000},
 			ConstLabels: Labels{"coin": coin},
 		},
 		[]string{"method"},
@@ -76,13 +85,13 @@ func GetMetrics(coin string) (*Metrics, error) {
 		},
 		[]string{"method", "status"},
 	)
-	metrics.WebsocketSubscribes = prometheus.NewCounterVec(
-		prometheus.CounterOpts{
+	metrics.WebsocketSubscribes = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
 			Name:        "blockbook_websocket_subscribes",
-			Help:        "Total number of websocket subscribes by channel and status",
+			Help:        "Number of websocket subscriptions by method",
 			ConstLabels: Labels{"coin": coin},
 		},
-		[]string{"channel", "status"},
+		[]string{"method"},
 	)
 	metrics.WebsocketClients = prometheus.NewGauge(
 		prometheus.GaugeOpts{
@@ -95,7 +104,7 @@ func GetMetrics(coin string) (*Metrics, error) {
 		prometheus.HistogramOpts{
 			Name:        "blockbook_websocket_req_duration",
 			Help:        "Websocket request duration by method (in microseconds)",
-			Buckets:     []float64{1, 5, 10, 25, 50, 75, 100, 250},
+			Buckets:     []float64{10, 100, 1_000, 10_000, 100_000, 1_000_000, 10_0000_000},
 			ConstLabels: Labels{"coin": coin},
 		},
 		[]string{"method"},
@@ -104,7 +113,7 @@ func GetMetrics(coin string) (*Metrics, error) {
 		prometheus.HistogramOpts{
 			Name:        "blockbook_index_resync_duration",
 			Help:        "Duration of index resync operation (in milliseconds)",
-			Buckets:     []float64{50, 100, 150, 200, 250, 300, 350, 400, 450, 500, 600, 700, 1000, 2000, 5000},
+			Buckets:     []float64{10, 100, 500, 1000, 2000, 5000, 10000},
 			ConstLabels: Labels{"coin": coin},
 		},
 	)
@@ -112,7 +121,7 @@ func GetMetrics(coin string) (*Metrics, error) {
 		prometheus.HistogramOpts{
 			Name:        "blockbook_mempool_resync_duration",
 			Help:        "Duration of mempool resync operation (in milliseconds)",
-			Buckets:     []float64{10, 25, 50, 75, 100, 150, 250, 500, 750, 1000, 2000, 5000},
+			Buckets:     []float64{10, 100, 500, 1000, 2000, 5000, 10000},
 			ConstLabels: Labels{"coin": coin},
 		},
 	)
@@ -163,6 +172,21 @@ func GetMetrics(coin string) (*Metrics, error) {
 			ConstLabels: Labels{"coin": coin},
 		},
 	)
+	metrics.EstimatedFee = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name:        "blockbook_estimated_fee",
+			Help:        "Estimated fee per byte (gas) for number of blocks",
+			ConstLabels: Labels{"coin": coin},
+		},
+		[]string{"blocks", "conservative"},
+	)
+	metrics.AvgBlockPeriod = prometheus.NewGauge(
+		prometheus.GaugeOpts{
+			Name:        "blockbook_avg_block_period",
+			Help:        "Average period of mining of last 100 blocks in seconds",
+			ConstLabels: Labels{"coin": coin},
+		},
+	)
 	metrics.DbColumnRows = prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
 			Name:        "blockbook_dbcolumn_rows",
@@ -186,6 +210,59 @@ func GetMetrics(coin string) (*Metrics, error) {
 			ConstLabels: Labels{"coin": coin},
 		},
 		[]string{"blockbook_version", "blockbook_commit", "blockbook_buildtime", "backend_version", "backend_subversion", "backend_protocol_version"},
+	)
+	metrics.BlockbookBestHeight = prometheus.NewGauge(
+		prometheus.GaugeOpts{
+			Name:        "blockbook_best_height",
+			Help:        "Block height in Blockbook",
+			ConstLabels: Labels{"coin": coin},
+		},
+	)
+	metrics.BackendBestHeight = prometheus.NewGauge(
+		prometheus.GaugeOpts{
+			Name:        "blockbook_backend_best_height",
+			Help:        "Block height in backend",
+			ConstLabels: Labels{"coin": coin},
+		},
+	)
+	metrics.ExplorerPendingRequests = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name:        "blockbook_explorer_pending_requests",
+			Help:        "Number of unfinished requests in explorer interface",
+			ConstLabels: Labels{"coin": coin},
+		},
+		[]string{"method"},
+	)
+	metrics.WebsocketPendingRequests = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name:        "blockbook_websocket_pending_requests",
+			Help:        "Number of unfinished requests in websocket interface",
+			ConstLabels: Labels{"coin": coin},
+		},
+		[]string{"method"},
+	)
+	metrics.SocketIOPendingRequests = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name:        "blockbook_socketio_pending_requests",
+			Help:        "Number of unfinished requests in socketio interface",
+			ConstLabels: Labels{"coin": coin},
+		},
+		[]string{"method"},
+	)
+	metrics.XPubCacheSize = prometheus.NewGauge(
+		prometheus.GaugeOpts{
+			Name:        "blockbook_xpub_cache_size",
+			Help:        "Number of cached xpubs",
+			ConstLabels: Labels{"coin": coin},
+		},
+	)
+	metrics.CoingeckoRequests = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name:        "blockbook_coingecko_requests",
+			Help:        "Total number of requests to coingecko",
+			ConstLabels: Labels{"coin": coin},
+		},
+		[]string{"endpoint", "status"},
 	)
 
 	v := reflect.ValueOf(metrics)

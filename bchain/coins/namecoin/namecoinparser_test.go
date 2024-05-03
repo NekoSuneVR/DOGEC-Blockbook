@@ -1,9 +1,8 @@
-// +build unittest
+//go:build unittest
 
 package namecoin
 
 import (
-	"blockbook/bchain/coins/btc"
 	"bytes"
 	"encoding/hex"
 	"fmt"
@@ -14,6 +13,7 @@ import (
 	"testing"
 
 	"github.com/martinboehm/btcutil/chaincfg"
+	"github.com/trezor/blockbook/bchain/coins/btc"
 )
 
 func TestMain(m *testing.M) {

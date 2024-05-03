@@ -1,18 +1,19 @@
 package gamecredits
 
 import (
-	"blockbook/bchain/coins/btc"
-
 	"github.com/martinboehm/btcd/wire"
 	"github.com/martinboehm/btcutil/chaincfg"
+	"github.com/trezor/blockbook/bchain/coins/btc"
 )
 
+// magic numbers
 const (
 	MainnetMagic wire.BitcoinNet = 0xdbb6c0fb
 	TestnetMagic wire.BitcoinNet = 0x0709110b
 	RegtestMagic wire.BitcoinNet = 0xdab5bffa
 )
 
+// chain parameters
 var (
 	MainNetParams chaincfg.Params
 	TestNetParams chaincfg.Params
@@ -34,12 +35,12 @@ func init() {
 
 // GameCreditsParser handle
 type GameCreditsParser struct {
-	*btc.BitcoinParser
+	*btc.BitcoinLikeParser
 }
 
 // NewGameCreditsParser returns new GameCreditsParser instance
 func NewGameCreditsParser(params *chaincfg.Params, c *btc.Configuration) *GameCreditsParser {
-	return &GameCreditsParser{BitcoinParser: btc.NewBitcoinParser(params, c)}
+	return &GameCreditsParser{BitcoinLikeParser: btc.NewBitcoinLikeParser(params, c)}
 }
 
 // GetChainParams contains network parameters for the main GameCredits network,
