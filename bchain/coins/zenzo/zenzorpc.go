@@ -1,4 +1,4 @@
-package dogec
+package zenzo
 
 import (
 	"blockbook/bchain"
@@ -9,13 +9,13 @@ import (
 )
 
 // DogeCRPC is an interface to JSON-RPC bitcoind service.
-type DogeCRPC struct {
+type ZenzoRPC struct {
 	*btc.BitcoinRPC
     BitcoinGetChainInfo func() (*bchain.ChainInfo, error)
 }
 
 // NewDogeCRPC returns new DogeCRPC instance.
-func NewDogeCRPC(config json.RawMessage, pushHandler func(bchain.NotificationType)) (bchain.BlockChain, error) {
+func NewZenzoRPC(config json.RawMessage, pushHandler func(bchain.NotificationType)) (bchain.BlockChain, error) {
 	b, err := btc.NewBitcoinRPC(config, pushHandler)
 	if err != nil {
 		return nil, err
@@ -33,7 +33,7 @@ func NewDogeCRPC(config json.RawMessage, pushHandler func(bchain.NotificationTyp
 }
 
 // Initialize initializes DogeCRPC instance.
-func (b *DogeCRPC) Initialize() error {
+func (b *ZenzoRPC) Initialize() error {
 	chainName, err := b.GetChainInfoAndInitializeMempool(b)
 	if err != nil {
 		return err
@@ -91,13 +91,13 @@ type ResGetMasternodeCount struct {
 }
 
 // GetNextSuperBlock returns the next superblock height after nHeight
-func (b *DogeCRPC) GetNextSuperBlock(nHeight int) int {
+func (b *ZenzoRPC) GetNextSuperBlock(nHeight int) int {
     return nHeight - nHeight % nBlocksPerPeriod + nBlocksPerPeriod
 }
 
 // GetChainInfo returns information about the connected backend
 // PIVX adds MoneySupply and ZerocoinSupply to btc implementation
-func (b *DogeCRPC) GetChainInfo() (*bchain.ChainInfo, error) {
+func (b *ZenzoRPC) GetChainInfo() (*bchain.ChainInfo, error) {
     rv, err := b.BitcoinGetChainInfo()
     if err != nil {
         return nil, err
@@ -147,7 +147,7 @@ type ResFindSerial struct {
 	} `json:"result"`
 }
 
-func (b *DogeCRPC) Findzcserial(serialHex string) (string, error) {
+func (b *ZenzoRPC) Findzcserial(serialHex string) (string, error) {
     glog.V(1).Info("rpc: findserial")
 
 	res := ResFindSerial{}

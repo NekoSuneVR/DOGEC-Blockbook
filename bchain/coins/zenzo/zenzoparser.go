@@ -1,4 +1,4 @@
-package dogec
+package zenzo
 
 import (
 	"blockbook/bchain"
@@ -66,16 +66,16 @@ func init() {
 	TestNetParams.PrivateKeyID = []byte{239}
 }
 
-// DogeCParser handle
-type DogeCParser struct {
+// ZenzoParser handle
+type ZenzoParser struct {
 	*btc.BitcoinParser
 	baseparser                         *bchain.BaseParser
 	BitcoinOutputScriptToAddressesFunc btc.OutputScriptToAddressesFunc
 }
 
 // NewDogeCParser returns new DogeCParser instance
-func NewDogeCParser(params *chaincfg.Params, c *btc.Configuration) *DogeCParser {
-	p := &DogeCParser{
+func NewZenzoParser(params *chaincfg.Params, c *btc.Configuration) *ZenzoParser {
+	p := &ZenzoParser{
 		BitcoinParser: btc.NewBitcoinParser(params, c),
 		baseparser:    &bchain.BaseParser{},
 	}
@@ -104,7 +104,7 @@ func GetChainParams(chain string) *chaincfg.Params {
 }
 
 // ParseBlock parses raw block to our Block struct
-func (p *DogeCParser) ParseBlock(b []byte) (*bchain.Block, error) {
+func (p *ZenzoParser) ParseBlock(b []byte) (*bchain.Block, error) {
 	r := bytes.NewReader(b)
 	w := wire.MsgBlock{}
 	h := wire.BlockHeader{}
@@ -138,17 +138,17 @@ func (p *DogeCParser) ParseBlock(b []byte) (*bchain.Block, error) {
 }
 
 // PackTx packs transaction to byte array using protobuf
-func (p *DogeCParser) PackTx(tx *bchain.Tx, height uint32, blockTime int64) ([]byte, error) {
+func (p *ZenzoParser) PackTx(tx *bchain.Tx, height uint32, blockTime int64) ([]byte, error) {
 	return p.baseparser.PackTx(tx, height, blockTime)
 }
 
 // UnpackTx unpacks transaction from protobuf byte array
-func (p *DogeCParser) UnpackTx(buf []byte) (*bchain.Tx, uint32, error) {
+func (p *ZenzoParser) UnpackTx(buf []byte) (*bchain.Tx, uint32, error) {
 	return p.baseparser.UnpackTx(buf)
 }
 
 // ParseTx parses byte array containing transaction and returns Tx struct
-func (p *DogeCParser) ParseTx(b []byte) (*bchain.Tx, error) {
+func (p *ZenzoParser) ParseTx(b []byte) (*bchain.Tx, error) {
 	t := wire.MsgTx{}
 	r := bytes.NewReader(b)
 	if err := t.Deserialize(r); err != nil {
@@ -160,7 +160,7 @@ func (p *DogeCParser) ParseTx(b []byte) (*bchain.Tx, error) {
 }
 
 // Parses tx and adds handling for OP_ZEROCOINSPEND inputs
-func (p *DogeCParser) TxFromMsgTx(t *wire.MsgTx, parseAddresses bool) bchain.Tx {
+func (p *ZenzoParser) TxFromMsgTx(t *wire.MsgTx, parseAddresses bool) bchain.Tx {
 	vin := make([]bchain.Vin, len(t.TxIn))
 	for i, in := range t.TxIn {
 
@@ -229,7 +229,7 @@ func (p *DogeCParser) TxFromMsgTx(t *wire.MsgTx, parseAddresses bool) bchain.Tx 
 }
 
 // ParseTxFromJson parses JSON message containing transaction and returns Tx struct
-func (p *DogeCParser) ParseTxFromJson(msg json.RawMessage) (*bchain.Tx, error) {
+func (p *ZenzoParser) ParseTxFromJson(msg json.RawMessage) (*bchain.Tx, error) {
 	var tx bchain.Tx
 	err := json.Unmarshal(msg, &tx)
 	if err != nil {
@@ -262,7 +262,7 @@ func (p *DogeCParser) ParseTxFromJson(msg json.RawMessage) (*bchain.Tx, error) {
 }
 
 // outputScriptToAddresses converts ScriptPubKey to bitcoin addresses
-func (p *DogeCParser) outputScriptToAddresses(script []byte) ([]string, bool, error) {
+func (p *ZenzoParser) outputScriptToAddresses(script []byte) ([]string, bool, error) {
 	if isZeroCoinSpendScript(script) {
 		return []string{ZCSPEND_LABEL}, false, nil
 	}
@@ -280,7 +280,7 @@ func (p *DogeCParser) outputScriptToAddresses(script []byte) ([]string, bool, er
 	return rv, s, nil
 }
 
-func (p *DogeCParser) GetAddrDescForUnknownInput(tx *bchain.Tx, input int) bchain.AddressDescriptor {
+func (p *ZenzoParser) GetAddrDescForUnknownInput(tx *bchain.Tx, input int) bchain.AddressDescriptor {
 	if len(tx.Vin) > input {
 		scriptHex := tx.Vin[input].ScriptSig.Hex
 
@@ -294,7 +294,7 @@ func (p *DogeCParser) GetAddrDescForUnknownInput(tx *bchain.Tx, input int) bchai
 	return s
 }
 
-func (p *DogeCParser) GetValueSatForUnknownInput(tx *bchain.Tx, input int) *big.Int {
+func (p *ZenzoParser) GetValueSatForUnknownInput(tx *bchain.Tx, input int) *big.Int {
 	if len(tx.Vin) > input {
 		scriptHex := tx.Vin[input].ScriptSig.Hex
 		if scriptHex != "" {
@@ -313,7 +313,7 @@ func (p *DogeCParser) GetValueSatForUnknownInput(tx *bchain.Tx, input int) *big.
 }
 
 // Decodes the amount from the zerocoin spend script
-func (p *DogeCParser) GetValueSatFromZerocoinSpend(signatureScript []byte) (*big.Int, error) {
+func (p *ZenzoParser) GetValueSatFromZerocoinSpend(signatureScript []byte) (*big.Int, error) {
 	r := bytes.NewReader(signatureScript)
 	r.Seek(1, io.SeekCurrent) // skip opcode
 	len, err := Uint8(r)      // get serialized coinspend size

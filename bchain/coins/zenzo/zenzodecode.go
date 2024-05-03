@@ -1,4 +1,4 @@
-package dogec
+package zenzo
 
 import (
    "encoding/binary"
