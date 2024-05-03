@@ -51,14 +51,14 @@ var (
 )
 
 func init() {
-	// DogeCash mainnet Address encoding magics
+	// Zenzo mainnet Address encoding magics
 	MainNetParams = chaincfg.MainNetParams
 	MainNetParams.Net = MainnetMagic
 	MainNetParams.PubKeyHashAddrID = []byte{30} // starting with 'D'
 	MainNetParams.ScriptHashAddrID = []byte{19}
 	MainNetParams.PrivateKeyID = []byte{122}
 
-	// DogeCash testnet Address encoding magics
+	// Zenzo testnet Address encoding magics
 	TestNetParams = chaincfg.TestNet3Params
 	TestNetParams.Net = TestnetMagic
 	TestNetParams.PubKeyHashAddrID = []byte{139} // starting with 'x' or 'y'
@@ -73,7 +73,7 @@ type ZenzoParser struct {
 	BitcoinOutputScriptToAddressesFunc btc.OutputScriptToAddressesFunc
 }
 
-// NewDogeCParser returns new DogeCParser instance
+// NewZenzoParser returns new ZenzoParser instance
 func NewZenzoParser(params *chaincfg.Params, c *btc.Configuration) *ZenzoParser {
 	p := &ZenzoParser{
 		BitcoinParser: btc.NewBitcoinParser(params, c),
@@ -84,7 +84,7 @@ func NewZenzoParser(params *chaincfg.Params, c *btc.Configuration) *ZenzoParser 
 	return p
 }
 
-// GetChainParams contains network parameters for the main DogeC network
+// GetChainParams contains network parameters for the main Zenzo network
 func GetChainParams(chain string) *chaincfg.Params {
 	if !chaincfg.IsRegistered(&MainNetParams) {
 		err := chaincfg.Register(&MainNetParams)
@@ -114,7 +114,7 @@ func (p *ZenzoParser) ParseBlock(b []byte) (*bchain.Block, error) {
 	}
 
 	if h.Version > 3 && h.Version < 7 {
-		// Skip past AccumulatorCheckpoint which was added in dogec block version 4 and removed in v7
+		// Skip past AccumulatorCheckpoint which was added in zenzo block version 4 and removed in v7
 		r.Seek(32, io.SeekCurrent)
 	}
 

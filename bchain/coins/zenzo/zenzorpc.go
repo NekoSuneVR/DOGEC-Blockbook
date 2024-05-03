@@ -8,20 +8,20 @@ import (
 	"github.com/golang/glog"
 )
 
-// DogeCRPC is an interface to JSON-RPC bitcoind service.
+// ZenzoRPC is an interface to JSON-RPC bitcoind service.
 type ZenzoRPC struct {
 	*btc.BitcoinRPC
     BitcoinGetChainInfo func() (*bchain.ChainInfo, error)
 }
 
-// NewDogeCRPC returns new DogeCRPC instance.
+// NewZenzoRPC returns new ZenzoRPC instance.
 func NewZenzoRPC(config json.RawMessage, pushHandler func(bchain.NotificationType)) (bchain.BlockChain, error) {
 	b, err := btc.NewBitcoinRPC(config, pushHandler)
 	if err != nil {
 		return nil, err
 	}
 
-	s := &DogeCRPC{
+	s := &ZenzoRPC{
 		b.(*btc.BitcoinRPC),
         b.GetChainInfo,
 	}
@@ -32,7 +32,7 @@ func NewZenzoRPC(config json.RawMessage, pushHandler func(bchain.NotificationTyp
 	return s, nil
 }
 
-// Initialize initializes DogeCRPC instance.
+// Initialize initializes ZenzoRPC instance.
 func (b *ZenzoRPC) Initialize() error {
 	chainName, err := b.GetChainInfoAndInitializeMempool(b)
 	if err != nil {
@@ -43,7 +43,7 @@ func (b *ZenzoRPC) Initialize() error {
 	params := GetChainParams(chainName)
 
 	// always create parser
-	b.Parser = NewDogeCParser(params, b.ChainConfig)
+	b.Parser = NewZenzoParser(params, b.ChainConfig)
 
 	// parameters for getInfo request
 	if params.Net == MainnetMagic {
@@ -70,7 +70,7 @@ type ResGetInfo struct {
 	Error  *bchain.RPCError `json:"error"`
 	Result struct {
         MoneySupply   json.Number `json:"moneysupply"`
-        ZerocoinSupply  bchain.ZCdenoms    `json:"zDOGECsupply"`
+        ZerocoinSupply  bchain.ZCdenoms    `json:"zZenzosupply"`
 	} `json:"result"`
 }
 
